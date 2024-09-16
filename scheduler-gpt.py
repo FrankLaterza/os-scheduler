@@ -48,27 +48,47 @@ def parse_input_file(filename):
     return processes, algorithm, quantum, total_time
 
 def fifo_scheduler(processes, total_time):
-    processes.sort(key=lambda p: p.arrival)
+    processes.sort(key=lambda p: p.arrival)  # Sort by arrival time
     time = 0
-    log = []
+    arrival_log = []
+    selection_log = []
+    completion_log = []
+    
     for process in processes:
+        # Log idle time if there's a gap before the next process arrives
         if time < process.arrival:
             while time < process.arrival:
-                log.append(f"Time {time:>3} : Idle")
+                arrival_log.append((time, f"Time {time:>3} : Idle"))
                 time += 1
-        log.append(f"Time {process.arrival:>3} : {process.name} arrived")
+
+        # Log process arrival
+        arrival_log.append((process.arrival, f"Time {process.arrival:>3} : {process.name} arrived"))
+
+        # Start processing
         process.start_time = time
         process.wait_time = time - process.arrival
+        selection_log.append((process.start_time, f"Time {process.start_time:>3} : {process.name} selected (burst {process.burst:>3})"))
+
+        # Increment the time by the process burst time
         time += process.burst
+
+        # Log process completion
         process.completion_time = time
         process.turnaround_time = process.completion_time - process.arrival
         process.response_time = process.wait_time
-        log.append(f"Time {process.start_time:>3} : {process.name} selected (burst {process.burst:>3})")
-        log.append(f"Time {process.completion_time:>3} : {process.name} finished")
+        completion_log.append((process.completion_time, f"Time {process.completion_time:>3} : {process.name} finished"))
+    
+    # If there's idle time at the end
     while time < total_time:
-        log.append(f"Time {time:>3} : Idle")
+        arrival_log.append((time, f"Time {time:>3} : Idle"))
         time += 1
-    return log
+
+    # Merge the logs: arrival -> selected -> finished
+    # Modified by Nawfal Cherkaoui Elmalki
+    full_log = sorted(arrival_log + completion_log + selection_log, key=lambda entry: entry[0])
+
+    # Return only the log messages, not the time keys
+    return [entry[1] for entry in full_log]
 
 def sjf_scheduler(processes, total_time):
     time = 0
@@ -153,7 +173,7 @@ def write_output_file(filename, log, metrics, algorithm, quantum=None):
             file.write(f"Quantum {quantum:>3}\n")
         for entry in log:
             file.write(entry + "\n")
-        last_time = int(log[-1].split()[1])
+        last_time = int(log[-1].split()[1]) + 1  # Increment last_time by 1
         file.write(f"Finished at time {last_time:>3}\n\n")
         for metric in metrics:
             file.write(metric + "\n")
