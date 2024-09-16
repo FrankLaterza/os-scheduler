@@ -153,7 +153,7 @@ def write_output_file(filename, log, metrics, algorithm, quantum=None):
             file.write(f"Quantum {quantum:>3}\n")
         for entry in log:
             file.write(entry + "\n")
-        last_time = int(log[-1].split()[1])
+        last_time = int(log[-1].split()[1]) + 1  # Increment last_time by 1
         file.write(f"Finished at time {last_time:>3}\n\n")
         for metric in metrics:
             file.write(metric + "\n")
