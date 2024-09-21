@@ -53,12 +53,15 @@ def fifo_scheduler(processes, total_time):
     arrival_log = []
     selection_log = []
     completion_log = []
+    # Modified by Nawfal Cherkaoui Elmalki
+    idle_log = []
     
     for process in processes:
         # Log idle time if there's a gap before the next process arrives
         if time < process.arrival:
             while time < process.arrival:
-                arrival_log.append((time, f"Time {time:>3} : Idle"))
+                # Modified by Nawfal Cherkaoui Elmalki
+                idle_log.append((time, f"Time {time:>3} : Idle"))
                 time += 1
 
         # Log process arrival
@@ -79,13 +82,14 @@ def fifo_scheduler(processes, total_time):
         completion_log.append((process.completion_time, f"Time {process.completion_time:>3} : {process.name} finished"))
     
     # If there's idle time at the end
+    # Modified by Nawfal Cherkaoui Elmalki
     while time < total_time:
-        arrival_log.append((time, f"Time {time:>3} : Idle"))
+        idle_log.append((time, f"Time {time:>3} : Idle"))
         time += 1
 
     # Merge the logs: arrival -> selected -> finished
     # Modified by Nawfal Cherkaoui Elmalki
-    full_log = sorted(arrival_log + completion_log + selection_log, key=lambda entry: entry[0])
+    full_log = sorted(arrival_log + completion_log + selection_log + idle_log, key=lambda entry: entry[0])
 
     # Return only the log messages, not the time keys
     return [entry[1] for entry in full_log]
@@ -156,10 +160,15 @@ def round_robin_scheduler(processes, total_time, quantum):
 
 def calculate_metrics(processes):
     metrics = []
-    for process in processes:
+    # Sort processes by name to ensure correct order (e.g., P01, P02, ...)
+    sorted_processes = sorted(processes, key=lambda p: p.name)
+    
+    for process in sorted_processes:
         response_time = process.response_time if process.response_time is not None else 0
         metrics.append(f"{process.name} wait {process.wait_time:>3} turnaround {process.turnaround_time:>3} response {response_time:>3}")
+    
     return metrics
+
 
 def write_output_file(filename, log, metrics, algorithm, quantum=None):
     with open(filename, 'w') as file:
