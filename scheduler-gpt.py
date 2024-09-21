@@ -127,12 +127,17 @@ def round_robin_scheduler(processes, total_time, quantum):
     time = 0
     log = []
     ready_queue = []
+    processes_in_system = processes[:]  # Keep a reference to the remaining processes
 
-    while time < total_time:
-        for process in processes:
-            if process.arrival == time:
+    # While there is either time left or processes to finish
+    # Modified by Nawfal Cherkaoui Elmalki
+    while time < total_time or ready_queue:
+        # Add newly arrived processes to the ready queue
+        for process in processes_in_system[:]:  # Safely iterate over a copy
+            if process.arrival <= time:
                 ready_queue.append(process)
-                log.append(f"Time {time:>3} : {process.name} arrived")
+                log.append(f"Time {process.arrival:>3} : {process.name} arrived")
+                processes_in_system.remove(process)  # Remove the process once added to the ready queue
 
         if ready_queue:
             current_process = ready_queue.pop(0)
@@ -141,10 +146,19 @@ def round_robin_scheduler(processes, total_time, quantum):
                 current_process.response_time = time - current_process.arrival
 
             execution_time = min(quantum, current_process.remaining_time)
+            
+            # Log the remaining time BEFORE subtracting the execution time
+            log.append(f"Time {time:>3} : {current_process.name} selected (burst {current_process.remaining_time:>3})")
+            
             current_process.remaining_time -= execution_time
             time += execution_time
 
-            log.append(f"Time {time - execution_time:>3} : {current_process.name} selected (burst {execution_time:>3})")
+            # Handle arrivals before marking a process as completed or adding it back to the queue
+            for process in processes_in_system[:]:  # Safely iterate over a copy
+                if process.arrival <= time:
+                    ready_queue.append(process)
+                    log.append(f"Time {process.arrival:>3} : {process.name} arrived")
+                    processes_in_system.remove(process)
 
             if current_process.remaining_time == 0:
                 current_process.completion_time = time
@@ -152,10 +166,16 @@ def round_robin_scheduler(processes, total_time, quantum):
                 current_process.wait_time = current_process.turnaround_time - current_process.burst
                 log.append(f"Time {time:>3} : {current_process.name} finished")
             else:
-                ready_queue.append(current_process)
+                ready_queue.append(current_process)  # Add back to the ready queue if not finished
         else:
-            log.append(f"Time {time:>3} : Idle")
-            time += 1
+            # If no process is ready, skip to the next arriving process to avoid idle time looping
+            if processes_in_system:
+                next_arrival = min(process.arrival for process in processes_in_system)
+                time = max(time, next_arrival)
+            else:
+                log.append(f"Time {time:>3} : Idle")
+                time += 1  # Increment time when there's idle time but no new arrivals
+
     return log
 
 def calculate_metrics(processes):
@@ -179,7 +199,7 @@ def write_output_file(filename, log, metrics, algorithm, quantum=None):
             file.write("Using preemptive Shortest Job First\n")
         elif algorithm == 'rr':
             file.write("Using Round-Robin\n")
-            file.write(f"Quantum {quantum:>3}\n")
+            file.write(f"Quantum {quantum:>3}\n\n")  # Add an extra newline here
         for entry in log:
             file.write(entry + "\n")
         last_time = int(log[-1].split()[1]) + 1  # Increment last_time by 1
