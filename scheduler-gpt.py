@@ -98,29 +98,59 @@ def sjf_scheduler(processes, total_time):
     time = 0
     log = []
     ready_queue = []
+    finished_processes_to_log = []
+    current_process = None
+    last_selected_process = None
+
     while time < total_time:
+        # Handle process arrivals at the current time first (log arrivals before anything else)
         for process in processes:
             if process.arrival == time:
                 ready_queue.append(process)
                 log.append(f"Time {time:>3} : {process.name} arrived")
+        
+        # Modified by Nawfal Cherkaoui Elmalki
+        for process in finished_processes_to_log[:]:
+            log.append(f"Time {time:>3} : {process.name} finished")
+            finished_processes_to_log.remove(process)
+
+        # Sort the ready queue by remaining burst time (SJF)
         if ready_queue:
             ready_queue.sort(key=lambda p: p.remaining_time)
-            current_process = ready_queue.pop(0)
-            if current_process.start_time is None:
-                current_process.start_time = time
-                current_process.response_time = time - current_process.arrival
+            current_process = ready_queue[0]  # Preemptive: Select the process with the shortest burst time
+
+            # Log only when a new process is selected
+            if current_process != last_selected_process:
+                # If this is the first time the process is selected, log response time
+                if current_process.response_time is None:
+                    current_process.response_time = time - current_process.arrival
+                log.append(f"Time {time:>3} : {current_process.name} selected (burst {current_process.remaining_time:>3})")
+                last_selected_process = current_process
+
+            # Process execution: decrement remaining time
             current_process.remaining_time -= 1
+
+            # If the process finishes
             if current_process.remaining_time == 0:
                 current_process.completion_time = time + 1
                 current_process.turnaround_time = current_process.completion_time - current_process.arrival
                 current_process.wait_time = current_process.turnaround_time - current_process.burst
-                log.append(f"Time {time + 1:>3} : {current_process.name} finished")
-            else:
-                ready_queue.append(current_process)
-            log.append(f"Time {time:>3} : {current_process.name} selected (burst {current_process.remaining_time:>3})")
+                finished_processes_to_log.append(current_process)
+                ready_queue.remove(current_process)  # Remove the finished process from the ready queue
+                
+                last_selected_process = None  # No process selected now
+
         else:
+            # If no process is ready, log idle time at every time unit
             log.append(f"Time {time:>3} : Idle")
+
+        # Move to the next time unit
         time += 1
+
+    # Modified by Nawfal Cherkaoui Elmalki
+    for process in finished_processes_to_log:
+        log.append(f"Time {time:>3} : {process.name} finished")
+
     return log
 
 def round_robin_scheduler(processes, total_time, quantum):
