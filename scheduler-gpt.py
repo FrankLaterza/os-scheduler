@@ -126,7 +126,7 @@ def sjf_scheduler(processes, total_time):
 def round_robin_scheduler(processes, total_time, quantum):
     time = 0
     log = []
-    ready_queue = [] #frank g
+    ready_queue = [] 
 
     while time < total_time:
         for process in processes:
