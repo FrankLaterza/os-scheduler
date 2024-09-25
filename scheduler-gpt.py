@@ -126,13 +126,17 @@ def sjf_scheduler(processes, total_time):
 def round_robin_scheduler(processes, total_time, quantum):
     time = 0
     log = []
-    ready_queue = [] 
+    ready_queue = []
+    system_Process = processes[:]  # reference the remaining processes
 
-    while time < total_time:
-        for process in processes:
-            if process.arrival == time:
+    # changed by Eric Hernandez
+    while time < total_time or ready_queue:
+        # Check for new arrivals
+        for process in system_Process[:]:
+            if process.arrival <= time:
                 ready_queue.append(process)
-                log.append(f"Time {time:>3} : {process.name} arrived")
+                log.append(f"Time {process.arrival:>3} : {process.name} arrived")
+                system_Process.remove(process)
 
         if ready_queue:
             current_process = ready_queue.pop(0)
@@ -141,21 +145,35 @@ def round_robin_scheduler(processes, total_time, quantum):
                 current_process.response_time = time - current_process.arrival
 
             execution_time = min(quantum, current_process.remaining_time)
+            log.append(f"Time {time:>3} : {current_process.name} selected (burst {current_process.remaining_time:>3})")
             current_process.remaining_time -= execution_time
             time += execution_time
 
-            log.append(f"Time {time - execution_time:>3} : {current_process.name} selected (burst {execution_time:>3})")
+            # Check for new arrivals during execution
+            #changed lines by Eric Hernandez
+            for process in system_Process[:]:
+                if process.arrival <= time:
+                    ready_queue.append(process)
+                    log.append(f"Time {process.arrival:>3} : {process.name} arrived")
+                    system_Process.remove(process)
 
             if current_process.remaining_time == 0:
                 current_process.completion_time = time
-                current_process.turnaround_time = current_process.completion_time - current_process.arrival
+                current_process.turnaround_time = time - current_process.arrival
                 current_process.wait_time = current_process.turnaround_time - current_process.burst
                 log.append(f"Time {time:>3} : {current_process.name} finished")
             else:
                 ready_queue.append(current_process)
         else:
-            log.append(f"Time {time:>3} : Idle")
-            time += 1
+            # If no process is ready, increment time to the next arriving process
+            # Added lines by Eric Hernandez
+            if system_Process:
+                next_arrival = min(process.arrival for process in system_Process)
+                time = max(time + 1, next_arrival)
+            else:
+                log.append(f"Time {time:>3} : Idle")
+                time += 1
+
     return log
 
 def calculate_metrics(processes):
