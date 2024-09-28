@@ -126,36 +126,60 @@ def sjf_scheduler(processes, total_time):
 def round_robin_scheduler(processes, total_time, quantum):
     time = 0
     log = []
-    ready_queue = [] #frank g
+    ready_queue = []
+    # Added by Gabriel Saborido
+    arrived_processes = set()  # To keep track of already arrived processes
+
+    # Sort processes by arrival time initially
+    processes.sort(key=lambda p: p.arrival)
 
     while time < total_time:
+        # Add new processes to the ready queue at the current time
         for process in processes:
-            if process.arrival == time:
+            # Modified by Gabriel Saborido
+            if process.arrival == time and process not in arrived_processes:
                 ready_queue.append(process)
                 log.append(f"Time {time:>3} : {process.name} arrived")
+                arrived_processes.add(process)
 
         if ready_queue:
-            current_process = ready_queue.pop(0)
-            if current_process.start_time is None:
-                current_process.start_time = time
+            # Modified by Gabriel Saborido
+            current_process = ready_queue.pop(0)  # Get the next process in line
+
+            # If process is selected for the first time, set response time
+            if current_process.response_time is None:
                 current_process.response_time = time - current_process.arrival
 
+            # Execute the process for the quantum or remaining burst time, whichever is smaller
             execution_time = min(quantum, current_process.remaining_time)
+            log.append(f"Time {time:>3} : {current_process.name} selected (burst {current_process.remaining_time:>3})")
+            
+            # Simulate the execution for the time slice (quantum or less)
             current_process.remaining_time -= execution_time
             time += execution_time
 
-            log.append(f"Time {time - execution_time:>3} : {current_process.name} selected (burst {execution_time:>3})")
-
+            # Modified by Gabriel Saborido
+            # Add new processes to the ready queue if they arrive during the current time slice
+            for process in processes:
+                if process.arrival > (time - execution_time) and process.arrival <= time and process not in arrived_processes:
+                    ready_queue.append(process)
+                    log.append(f"Time {process.arrival:>3} : {process.name} arrived")
+                    arrived_processes.add(process)
+            
             if current_process.remaining_time == 0:
+                # Process finishes
                 current_process.completion_time = time
                 current_process.turnaround_time = current_process.completion_time - current_process.arrival
                 current_process.wait_time = current_process.turnaround_time - current_process.burst
                 log.append(f"Time {time:>3} : {current_process.name} finished")
             else:
+                # Process isn't done, put it back into the ready queue
                 ready_queue.append(current_process)
         else:
+            # No process to run, CPU is idle
             log.append(f"Time {time:>3} : Idle")
             time += 1
+
     return log
 
 def calculate_metrics(processes):
@@ -197,8 +221,11 @@ def main():
         print(f"Usage: {sys.argv[0]} <input file>")
         sys.exit(1)
 
+    # Added by Gabriel Saborido
+    # Parse the input file
     processes, algorithm, quantum, total_time = parse_input_file(input_file)
 
+    # Choose the appropriate scheduling algorithm
     if algorithm == 'fcfs':
         log = fifo_scheduler(processes, total_time)
     elif algorithm == 'sjf':
@@ -209,6 +236,7 @@ def main():
         print(f"Error: Unknown algorithm {algorithm}")
         sys.exit(1)
 
+    # Calculate process metrics and write the output file
     metrics = calculate_metrics(processes)
     output_file = input_file.replace('.in', '.out')
     write_output_file(output_file, log, metrics, algorithm, quantum if algorithm == 'rr' else None)
