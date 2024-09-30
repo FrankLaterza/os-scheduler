@@ -55,7 +55,7 @@ def fifo_scheduler(processes, total_time):
     completion_log = []
     # Modified by Nawfal Cherkaoui Elmalki
     idle_log = []
-    
+
     for process in processes:
         # Log idle time if there's a gap before the next process arrives
         if time < process.arrival:
@@ -80,7 +80,7 @@ def fifo_scheduler(processes, total_time):
         process.turnaround_time = process.completion_time - process.arrival
         process.response_time = process.wait_time
         completion_log.append((process.completion_time, f"Time {process.completion_time:>3} : {process.name} finished"))
-    
+
     # If there's idle time at the end
     # Modified by Nawfal Cherkaoui Elmalki
     while time < total_time:
@@ -95,32 +95,65 @@ def fifo_scheduler(processes, total_time):
     return [entry[1] for entry in full_log]
 
 def sjf_scheduler(processes, total_time):
-    time = 0
-    log = []
-    ready_queue = []
+    time = 0  # Current time
+    log = []  # Log of all events
+    ready_queue = []  # Queue of processes that have arrived and are ready
+    current_process = None  # Track the currently running process
+    finished_processes = set()  # Track finished processes
+
     while time < total_time:
+        # Add newly arrived processes to the ready queue at this time
         for process in processes:
             if process.arrival == time:
                 ready_queue.append(process)
                 log.append(f"Time {time:>3} : {process.name} arrived")
-        if ready_queue:
-            ready_queue.sort(key=lambda p: p.remaining_time)
-            current_process = ready_queue.pop(0)
-            if current_process.start_time is None:
-                current_process.start_time = time
-                current_process.response_time = time - current_process.arrival
-            current_process.remaining_time -= 1
+
+        # Modified by Mauricio Ferrari
+        if current_process:
+            # If the process finishes at this time
             if current_process.remaining_time == 0:
-                current_process.completion_time = time + 1
+                current_process.completion_time = time
                 current_process.turnaround_time = current_process.completion_time - current_process.arrival
-                current_process.wait_time = current_process.turnaround_time - current_process.burst
-                log.append(f"Time {time + 1:>3} : {current_process.name} finished")
-            else:
-                ready_queue.append(current_process)
-            log.append(f"Time {time:>3} : {current_process.name} selected (burst {current_process.remaining_time:>3})")
+                current_process.wait_time = current_process.turnaround_time - current_process.burst  # Correct wait time
+                log.append(f"Time {time:>3} : {current_process.name} finished")
+                finished_processes.add(current_process)
+                current_process = None  # Reset the current process
+
+        # Remove any finished processes from the ready queue
+        ready_queue = [p for p in ready_queue if p.remaining_time > 0]
+
+        # Sort the ready queue by remaining burst time (Shortest Remaining Time First)
+        if ready_queue or current_process:
+            if ready_queue:
+                ready_queue.sort(key=lambda p: p.remaining_time)
+
+                # Preempt the current process if necessary
+                if current_process is None or (ready_queue[0].remaining_time < current_process.remaining_time):
+                    if current_process is not None and current_process.remaining_time > 0:
+                        # Preempt the current process, modified by Mauricio Ferrari
+                        # log.append(f"Time {time:>3} : {current_process.name} preempted (remaining {current_process.remaining_time:>3})")
+                        ready_queue.append(current_process)
+
+                    # Select the next process with the shortest remaining time
+                    current_process = ready_queue.pop(0)
+
+                    # If the process is starting for the first time, set response time
+                    if current_process.start_time is None:
+                        current_process.start_time = time
+                        current_process.response_time = time - current_process.arrival
+
+                    log.append(f"Time {time:>3} : {current_process.name} selected (burst {current_process.remaining_time:>3})")
+
+            # Execute the current process for 1 time unit
+            if current_process:
+                current_process.remaining_time -= 1
+
         else:
+            # If no process is ready and no process is running, the CPU is idle
             log.append(f"Time {time:>3} : Idle")
+
         time += 1
+
     return log
 
 def round_robin_scheduler(processes, total_time, quantum):
@@ -153,7 +186,7 @@ def round_robin_scheduler(processes, total_time, quantum):
             # Execute the process for the quantum or remaining burst time, whichever is smaller
             execution_time = min(quantum, current_process.remaining_time)
             log.append(f"Time {time:>3} : {current_process.name} selected (burst {current_process.remaining_time:>3})")
-            
+
             # Simulate the execution for the time slice (quantum or less)
             current_process.remaining_time -= execution_time
             time += execution_time
@@ -165,7 +198,7 @@ def round_robin_scheduler(processes, total_time, quantum):
                     ready_queue.append(process)
                     log.append(f"Time {process.arrival:>3} : {process.name} arrived")
                     arrived_processes.add(process)
-            
+
             if current_process.remaining_time == 0:
                 # Process finishes
                 current_process.completion_time = time
@@ -186,11 +219,11 @@ def calculate_metrics(processes):
     metrics = []
     # Sort processes by name to ensure correct order (e.g., P01, P02, ...)
     sorted_processes = sorted(processes, key=lambda p: p.name)
-    
+
     for process in sorted_processes:
         response_time = process.response_time if process.response_time is not None else 0
         metrics.append(f"{process.name} wait {process.wait_time:>3} turnaround {process.turnaround_time:>3} response {response_time:>3}")
-    
+
     return metrics
 
 
