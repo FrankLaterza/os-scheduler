@@ -163,6 +163,7 @@ def round_robin_scheduler(processes, total_time, quantum):
     # Added by Gabriel Saborido
     arrived_processes = set()  # To keep track of already arrived processes
 
+    # Added by Eric Hernandez
     # Sort processes by arrival time initially
     processes.sort(key=lambda p: p.arrival)
 
@@ -183,6 +184,7 @@ def round_robin_scheduler(processes, total_time, quantum):
             if current_process.response_time is None:
                 current_process.response_time = time - current_process.arrival
 
+            # Modified by Eric Hernandez
             # Execute the process for the quantum or remaining burst time, whichever is smaller
             execution_time = min(quantum, current_process.remaining_time)
             log.append(f"Time {time:>3} : {current_process.name} selected (burst {current_process.remaining_time:>3})")
@@ -198,7 +200,8 @@ def round_robin_scheduler(processes, total_time, quantum):
                     ready_queue.append(process)
                     log.append(f"Time {process.arrival:>3} : {process.name} arrived")
                     arrived_processes.add(process)
-
+   
+            # Modified by Eric Hernandez
             if current_process.remaining_time == 0:
                 # Process finishes
                 current_process.completion_time = time
