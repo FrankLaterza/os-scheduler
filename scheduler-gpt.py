@@ -1,3 +1,10 @@
+# members
+# Nawfal Cherkaoui Elmalki
+# Frank Laterza
+# Mauricio Ferrari
+# Gabriel Saborido
+# Eric Hernandez
+
 import sys
 
 class Process:
